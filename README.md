@@ -1,3 +1,13 @@
+# MSFS glTF Viewer
+
+This is an experimental model viewer for the upcoming Microsoft Flight Simulator. The new platform uses slight modifications of the standardized glTF 2.0 format for visual models. This code is forked and modified from the office Microsoft GLTF Viewer Sample.
+
+This is still under development and is not useful as a standalone viewer yet. Many areas of the GLTF Viewer Sample needed modification to allow these files to be read - mostly areas not respecting more complicated parts of the glTF 2.0 spec. Additional schema support is added for several Asobo extensions. 
+
+You must have already have access to the MSFS Alpha and developer program to find this useful. As this is still under NDA, no discussion of the Alpha or any MSFS internals may take place in this repo. Please do not message me about this - if you don't have access there is nothing I can do.
+
+Original readme from the parent project below:
+
 # DirectX GLTF Viewer Sample
 This project was motivated by a lack of sample code demonstrating the graphics API agnostic nature of the [glTF specification](https://www.google.com). The sample code is written using modern C++, DirectX 11 and the Universal Windows Platform (UWP) for the client application. The client application could have been written using any application development platform that supports DirectX 11 rendering. This sample is a port of the [Khronos PBR WebGL Sample](https://github.com/KhronosGroup/glTF-WebGL-PBR) and supports the same feature set.
 
