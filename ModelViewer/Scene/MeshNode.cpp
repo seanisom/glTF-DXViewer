@@ -63,8 +63,9 @@ void MeshNode::CompileAndLoadVertexShader()
 
 	// Currently the compiler defines consist of UV and NORMALS...
 	// Currently always define NORMALS but only define UV if we have tex coords buffer
-	auto texcoords = _buffers.find(L"TEXCOORD_0");
-	if (texcoords != _buffers.end())
+	//auto texcoords = _buffers.find(L"TEXCOORD_0");
+	//if (texcoords != _buffers.end())
+	//// TODO smisom - make this configurable
 	{
 		descriptor.AddDefine(uvs);
 		m_hasUVs = true;
@@ -117,6 +118,20 @@ void MeshNode::CreateDeviceDependentResources()
 
 	DX::ThrowIfFailed(DevResources()->GetD3DDevice()->CreateSamplerState(&samplerDesc, 
 		_spSampler.ReleaseAndGetAddressOf()));
+
+	// reset winding order to CW
+	D3D11_RASTERIZER_DESC rasterizerState;
+	rasterizerState.FillMode = D3D11_FILL_SOLID;
+	rasterizerState.CullMode = D3D11_CULL_BACK;
+	rasterizerState.FrontCounterClockwise = false;
+	rasterizerState.DepthBias = false;
+	rasterizerState.DepthBiasClamp = 0;
+	rasterizerState.SlopeScaledDepthBias = 0;
+	rasterizerState.DepthClipEnable = false;
+	rasterizerState.ScissorEnable = false;
+	rasterizerState.MultisampleEnable = true;
+	rasterizerState.AntialiasedLineEnable = true;
+	DX::ThrowIfFailed(DevResources()->GetD3DDevice()->CreateRasterizerState(&rasterizerState, _spRasterizer.ReleaseAndGetAddressOf()));
 }
 
 void MeshNode::Draw(SceneContext& context, XMMATRIX model)
@@ -124,13 +139,23 @@ void MeshNode::Draw(SceneContext& context, XMMATRIX model)
 	if (!m_loadingComplete)
 		return;
 
-	unsigned int indexCount = 0;
+	context.context().RSSetState(_spRasterizer.Get());
+	
+	//unsigned int indexCount = 0;
 	bool indexed = false;
 
 	// Get POSITIONS & NORMALS..
 	auto pos = _buffers.find(L"POSITION");
 	auto posBuffer = pos->second.Buffer();
+	UINT stride = 36;
+	UINT offset = 0;
+	ID3D11Buffer* vbs[] =
+	{
+		*(posBuffer.GetAddressOf())
+	};
+	context.context().IASetVertexBuffers(0, 1, vbs, &stride, &offset);
 
+	/*
 	auto texcoords = _buffers.find(L"TEXCOORD_0");
 	ComPtr<ID3D11Buffer> texcoordBuffer;
 	if (texcoords != _buffers.end())
@@ -152,9 +177,11 @@ void MeshNode::Draw(SceneContext& context, XMMATRIX model)
 		*(texcoordBuffer.GetAddressOf())
 	};
 
+
 	unsigned int strides[] = { 3 * sizeof(float), 3 * sizeof(float), 2 * sizeof(float) };
 	unsigned int offsets[] = { 0, 0, 0 };
 	context.context().IASetVertexBuffers(0, 3, vbs, strides, offsets);
+	*/
 
 	auto indices = _buffers.find(L"INDICES");
 	if (indices != _buffers.end())

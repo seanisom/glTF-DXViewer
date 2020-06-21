@@ -56,9 +56,13 @@ GraphNode * ModelFactory::InitialiseMesh(GLTF_SceneNodeData^ data)
 void ModelFactory::CreateSceneNode(GLTF_SceneNodeData^ data)
 {
 	GraphNode *parent = nullptr;
-	if (_root && data->ParentIndex != -1)
+	if (data->ParentIndex != -1)
 	{
 		parent = _root->FindChildByIndex(data->ParentIndex);
+	}
+	else
+	{
+		parent = _root;
 	}
 
 	if (data->IsMesh)
@@ -72,12 +76,13 @@ void ModelFactory::CreateSceneNode(GLTF_SceneNodeData^ data)
 		_currentNode->Initialise(devResources);
 	}
 	_currentNode->SetName(data->Name->Data());
-
+	/*
 	if (_root == nullptr)
 	{
 		_root = _currentNode;
 	}
-	else if (parent && _currentNode)
+	else */
+	if (parent && _currentNode)
 	{
 		shared_ptr<GraphNode> sp;
 		sp.reset(_currentNode);
@@ -89,7 +94,10 @@ future<shared_ptr<GraphNode>> ModelFactory::CreateFromFileAsync(StorageFile^ fil
 {
 	_parser = ref new GLTF_Parser();
 	_root = _currentNode = nullptr;
-
+	_root = new GraphContainerNode(-1);
+	_root->Initialise(SceneManager::Instance().DevResources());
+	_root->SetName(L"Root Node");
+	
 	function<void(GLTF_SceneNodeData^)> snmmemfun = bind(&ModelFactory::CreateSceneNode, &(ModelFactory::Instance()), placeholders::_1);
 	function<void(GLTF_BufferData^)> memfun = bind(&ModelFactory::CreateBuffer, &(ModelFactory::Instance()), placeholders::_1);
 	function<void(GLTF_TextureData^)> tmemfun = bind(&ModelFactory::CreateTexture, &(ModelFactory::Instance()), placeholders::_1);

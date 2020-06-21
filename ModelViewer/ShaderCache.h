@@ -185,10 +185,14 @@ public:
 		static const D3D11_INPUT_ELEMENT_DESC vertexDesc[] =
 		{
 			{ "POSITION",	0,	DXGI_FORMAT_R32G32B32_FLOAT,	0,	0,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "NORMAL",		0,  DXGI_FORMAT_R32G32B32_FLOAT,	1,	0,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
-			{ "TEXCOORD",	0,  DXGI_FORMAT_R32G32_FLOAT,		2,	0,	D3D11_INPUT_PER_VERTEX_DATA, 0 }
+			{ "TANGENT",	0,  DXGI_FORMAT_R8G8B8A8_SNORM,	    0,	12,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "NORMAL",		0,  DXGI_FORMAT_R8G8B8A8_SNORM,	    0,	16,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD_",	0,  DXGI_FORMAT_R16G16_FLOAT,		0,	20,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "TEXCOORD_",	1,  DXGI_FORMAT_R16G16_FLOAT,		0,	24,	D3D11_INPUT_PER_VERTEX_DATA, 0 },
+			{ "COLOR_",  	0,  DXGI_FORMAT_R16G16B16A16_UINT,	0,	28,	D3D11_INPUT_PER_VERTEX_DATA, 0 }
 		};
 
+		/*
 		auto uvs = std::find(descriptor.Defines().begin(), descriptor.Defines().end(), "UV");
 		bool hasUVs = uvs != descriptor.Defines().end();
 
@@ -199,11 +203,12 @@ public:
 		{
 			(dynamicVertexDesc.get())[2] = vertexDesc[2];
 		}
-
+		*/
 		// Now create an Input layout that matches..
-		ThrowIfFailed(descriptor.DevResources()->GetD3DDevice()->CreateInputLayout(dynamicVertexDesc.get(),
-			hasUVs ? 3 : 2, vsBlob->GetBufferPointer(),vsBlob->GetBufferSize(), ret->InputLayoutAddressOf()));
-
+		//ThrowIfFailed(descriptor.DevResources()->GetD3DDevice()->CreateInputLayout(dynamicVertexDesc.get(),
+		//	hasUVs ? 3 : 2, vsBlob->GetBufferPointer(),vsBlob->GetBufferSize(), ret->InputLayoutAddressOf()));
+		ThrowIfFailed(descriptor.DevResources()->GetD3DDevice()->CreateInputLayout(vertexDesc,
+			6, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), ret->InputLayoutAddressOf()));
 		return ret;
 	}
 

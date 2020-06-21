@@ -1,8 +1,12 @@
 #include "pch.h"
 #include "ImgUtils.h"
 #include "Common\DirectXHelper.h"
+#include "dds_reader.h"
 
-using namespace DX;
+#include <algorithm>
+#include <filesystem>
+//using namespace DX;
+namespace fs = std::filesystem;
 
 vector<uint8_t> ImgUtils::LoadRGBAImage(void *imgFileData, size_t imgFileDataSize, uint32_t& width, uint32_t& height, 
 	bool jpg, const wchar_t *filename)
@@ -17,6 +21,36 @@ vector<uint8_t> ImgUtils::LoadRGBAImage(void *imgFileData, size_t imgFileDataSiz
 	// Initialize the stream with the memory pointer and size.
 	ThrowIfFailed(pIWICStream->InitializeFromMemory(reinterpret_cast<BYTE*>(imgFileData), static_cast<DWORD>(imgFileDataSize)));
 
+	bool isDDS = false;
+	if (filename != nullptr)
+	{
+		// Check for DDS
+		fs::path filePath = filename;
+		
+		if (filePath.extension() == ".DDS")
+			isDDS = true;
+	}
+	else if (*(uint32_t*)imgFileData == 542327876) // "DDS "
+	{
+		isDDS = true;
+	}
+
+	// if DDS, short circuit, no need for WIC
+	if (isDDS)
+	{
+		byte* pixels = reinterpret_cast<byte*>(ddsRead(static_cast<const unsigned char*>(imgFileData), DDS_READER_ARGB, 0));
+		width = ddsGetWidth(static_cast<const unsigned char*>(imgFileData));
+		height = ddsGetHeight(static_cast<const unsigned char*>(imgFileData));
+		uint32_t outsize = width * height * 4;
+		vector<uint8_t> image;
+		image.resize(size_t(outsize));
+		if (pixels != nullptr)
+		{
+			std::copy(pixels, pixels + outsize, reinterpret_cast<BYTE*>(image.data()));
+		}
+		return image;
+	}
+	
 	ComPtr<IWICBitmapDecoder> decoder;
 	if (jpg)
 	{

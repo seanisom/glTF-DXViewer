@@ -10,11 +10,13 @@
 #include <fstream>
 #include <sstream>
 
+typedef Microsoft::glTF::Document GLTFDocument;
+
 namespace GLTFParser
 {
 	using namespace Microsoft::glTF;
 	using namespace std;
-
+	
 	enum class GLTFTextureType
 	{
 		BaseColour = 0,

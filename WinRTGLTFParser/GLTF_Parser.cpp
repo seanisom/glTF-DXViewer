@@ -81,7 +81,7 @@ public:
 		shared_ptr<void> fileHandle;
 		HANDLE file = nullptr;
 		ThrowIfFailed(fileAccessor->Create(HANDLE_ACCESS_OPTIONS::HAO_READ,
-			HANDLE_SHARING_OPTIONS::HSO_SHARE_NONE,
+			HANDLE_SHARING_OPTIONS::HSO_SHARE_READ,
 			HANDLE_OPTIONS::HO_RANDOM_ACCESS,
 			nullptr,
 			&file));

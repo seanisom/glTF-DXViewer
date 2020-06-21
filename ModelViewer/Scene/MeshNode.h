@@ -59,6 +59,7 @@ private:
 	map<wstring, BufferWrapper> _buffers;
 
 	ComPtr<ID3D11SamplerState> _spSampler;
+	ComPtr<ID3D11RasterizerState> _spRasterizer;
 	shared_ptr<NodeMaterial> _material;
 
 	size_t	m_indexCount;

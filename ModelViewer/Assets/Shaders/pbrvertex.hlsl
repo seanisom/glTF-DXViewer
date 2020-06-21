@@ -10,6 +10,7 @@ cbuffer ModelViewProjectionConstantBuffer : register(b0)
 };
 
 // Per-vertex data used as input to the vertex shader.
+/*
 struct VertexShaderInput
 {
     float4 position : POSITION;
@@ -19,6 +20,17 @@ struct VertexShaderInput
 #ifdef UV
     float2 texcoord : TEXCOORD0;
 #endif
+};
+*/
+
+struct VertexShaderInput
+{
+    float4 position : POSITION;
+    float4 tangent : TANGENT;
+    float4 normal : NORMAL;
+    float2 texcoord : TEXCOORD_0;
+    float2 texcoord1 : TEXCOORD_1;
+    uint4   color : COLOR_0;
 };
 
 // Per-pixel color data passed through the pixel shader.

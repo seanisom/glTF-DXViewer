@@ -356,4 +356,5 @@ float4 main(PixelShaderInput input) : SV_TARGET
     color = lerp(color, float3(perceptualRoughness, perceptualRoughness, perceptualRoughness), scaleDiffBaseMR.w);
 
     return float4(color, 1.0);
+    //return float4(1.0, 1.0, 1.0, 1.0);
 }
