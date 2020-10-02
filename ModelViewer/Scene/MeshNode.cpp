@@ -82,23 +82,32 @@ void MeshNode::CompileAndLoadPixelShader()
 	// The hash used for lookup is generated from the shader name and defines passed
 	// when it is compiled
 	ShaderDescriptor descriptor("pbrpixel.hlsl", DevResources());
-	auto textures = _material->Textures();
-
-	// Allocate the defines map...
-	size_t count = textures.size();
-
-	// Iterate through all textures and set them as shader resources...
-	int idx = 0;
-	for (auto txItr = textures.begin(); txItr != textures.end(); ++txItr)
+	std::vector<unsigned int> types;
+	for(auto& _material: _materials)
 	{
-		auto textureWrapper = txItr->second;
-		auto type = textureWrapper->Type();
+		auto textures = _material->Textures();
 
+		// Iterate through all textures and set them as shader resources...
+		for (auto txItr = textures.begin(); txItr != textures.end(); ++txItr)
+		{
+			auto textureWrapper = txItr->second;
+			auto type = textureWrapper->Type();
+			if (std::find_if(types.begin(), types.end(), [&](const unsigned int & o) {
+				return o == type;
+			}) == types.end())
+			{
+				types.emplace_back(type);
+			}
+		}
+	}
+
+	for (auto& type: types)
+	{
 		const char *define = defineLookup[type];
 
 		descriptor.AddDefine(define);
-		idx++;
 	}
+
 
 	// Lookup and return or create the shader if necessary
 	m_pixelShaderWrapper = ShaderCache<PixelShaderWrapper>::Instance().FindOrCreateShader(descriptor);
@@ -141,20 +150,6 @@ void MeshNode::Draw(SceneContext& context, XMMATRIX model)
 
 	context.context().RSSetState(_spRasterizer.Get());
 	
-	//unsigned int indexCount = 0;
-	bool indexed = false;
-
-	// Get POSITIONS & NORMALS..
-	auto pos = _buffers.find(L"POSITION");
-	auto posBuffer = pos->second.Buffer();
-	UINT stride = 36;
-	UINT offset = 0;
-	ID3D11Buffer* vbs[] =
-	{
-		*(posBuffer.GetAddressOf())
-	};
-	context.context().IASetVertexBuffers(0, 1, vbs, &stride, &offset);
-
 	/*
 	auto texcoords = _buffers.find(L"TEXCOORD_0");
 	ComPtr<ID3D11Buffer> texcoordBuffer;
@@ -183,76 +178,105 @@ void MeshNode::Draw(SceneContext& context, XMMATRIX model)
 	context.context().IASetVertexBuffers(0, 3, vbs, strides, offsets);
 	*/
 
-	auto indices = _buffers.find(L"INDICES");
-	if (indices != _buffers.end())
+	const auto count = _buffers.size() / 2;
+	for (auto i = 0; i < count; ++i)
 	{
-		indexed = true;
-		m_indexCount = indices->second.Data()->BufferDescription->Count;
-		context.context().IASetIndexBuffer(
-			indices->second.Buffer().Get(),
-			DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
-			0
-		);
-	}
+		bool indexed = false;
 
-	context.context().IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	context.context().IASetInputLayout(m_vertexShaderWrapper->InputLayout());
-
-	// Attach our vertex shader.
-	assert(m_vertexShaderWrapper->VertexShader());
-	context.context().VSSetShader(m_vertexShaderWrapper->VertexShader(), nullptr, 0);
-
-	// Send the constant buffer to the graphics device.
-	context.context().VSSetConstantBuffers1(0, 1, BufferManager::Instance().MVPBuffer().ConstantBuffer().GetAddressOf(),
-		nullptr, nullptr);
-
-	// Attach our pixel shader.
-	context.context().PSSetShader(m_pixelShaderWrapper->PixelShader(), nullptr, 0);
-	context.context().PSSetConstantBuffers(0, 1, BufferManager::Instance().PerFrameBuffer().ConstantBuffer().GetAddressOf());
-	context.context().PSSetConstantBuffers(1, 1, BufferManager::Instance().PerObjBuffer().ConstantBuffer().GetAddressOf());
-
-	// Set the base colour factor from the material...
-	BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.x = _material->BaseColourFactor().x;
-	BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.y = _material->BaseColourFactor().y;
-	BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.z = _material->BaseColourFactor().z;
-	BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.w = _material->BaseColourFactor().w;
-
-	BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.x = _material->EmissiveFactor().x;
-	BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.y = _material->EmissiveFactor().y;
-	BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.z = _material->EmissiveFactor().z;
-
-	BufferManager::Instance().PerObjBuffer().BufferData().metallicRoughnessValues.x = _material->MetallicFactor();
-	BufferManager::Instance().PerObjBuffer().BufferData().metallicRoughnessValues.y = _material->RoughnessFactor();
-	BufferManager::Instance().PerObjBuffer().Update(*(DevResources()));
-
-	// Iterate through all textures and set them as shader resources...
-	auto textures = _material->Textures();
-
-	// Setting the textures and samplers using the GLTF index as the destination slot
-	// We load some textures twice here so maybe re-visit..
-	for (auto txItr = textures.begin(); txItr != textures.end(); ++txItr)
-	{
-		auto textureWrapper = txItr->second;
-
-		// Set texture and sampler.
-		auto sampler = textureWrapper->GetSampler().Get();
-		context.context().PSSetSamplers(textureWrapper->Type(), 1, &sampler);
+		// Get POSITIONS & NORMALS..
+		auto pos = _buffers.find(L"POSITION_" + std::to_wstring(i));
+		auto posBuffer = pos->second.Buffer();
+		UINT stride = 36;
+		UINT offset = 0;
+		ID3D11Buffer* vbs[] =
+		{
+			*(posBuffer.GetAddressOf())
+		};
+		context.context().IASetVertexBuffers(0, 1, vbs, &stride, &offset);
 		
-		//Utility::Out(L"Set texture sampler at slot %d", textureWrapper->Type());
-		auto texture = textureWrapper->GetShaderResourceView().Get();
-		context.context().PSSetShaderResources(textureWrapper->Type(), 1, &texture);
-	}
+		auto indices = _buffers.find(L"INDICES_" + std::to_wstring(i));
+		if (indices != _buffers.end())
+		{
+			indexed = true;
+			m_indexCount = indices->second.Data()->BufferDescription->Count;
+			m_indexStart = indices->second.Data()->SubResource->MiscFlags;
+			context.context().IASetIndexBuffer(
+				indices->second.Buffer().Get(),
+				DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
+				0
+			);
+		}
+		//auto iter = std::find_if(_materials.begin(), _materials.end(), [&](const shared_ptr<NodeMaterial> & o) {
+		//		return o-> == type;
+		//	});
+		//auto idx = indices->second.Data()->SubResource->BindFlags;
+		//auto _material = _materials[idx];
+		auto _material = _materials[i];
 
-	if (indexed)
-	{
-		context.context().DrawIndexed(static_cast<unsigned int>(m_indexCount), 0, 0);
-	}
-	else
-	{
-		context.context().Draw(static_cast<unsigned int>(m_indexCount), 0);
-	}
+		if (_material->Invisible())
+		{
+			continue;
+		}
 
-	GraphContainerNode::Draw(context, model);
+		context.context().IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		context.context().IASetInputLayout(m_vertexShaderWrapper->InputLayout());
+
+		// Attach our vertex shader.
+		assert(m_vertexShaderWrapper->VertexShader());
+		context.context().VSSetShader(m_vertexShaderWrapper->VertexShader(), nullptr, 0);
+
+		// Send the constant buffer to the graphics device.
+		context.context().VSSetConstantBuffers1(0, 1, BufferManager::Instance().MVPBuffer().ConstantBuffer().GetAddressOf(),
+			nullptr, nullptr);
+
+		// Attach our pixel shader.
+		context.context().PSSetShader(m_pixelShaderWrapper->PixelShader(), nullptr, 0);
+		context.context().PSSetConstantBuffers(0, 1, BufferManager::Instance().PerFrameBuffer().ConstantBuffer().GetAddressOf());
+		context.context().PSSetConstantBuffers(1, 1, BufferManager::Instance().PerObjBuffer().ConstantBuffer().GetAddressOf());
+
+		// Set the base colour factor from the material...
+		BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.x = _material->BaseColourFactor().x;
+		BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.y = _material->BaseColourFactor().y;
+		BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.z = _material->BaseColourFactor().z;
+		BufferManager::Instance().PerObjBuffer().BufferData().baseColorFactor.w = _material->BaseColourFactor().w;
+
+		BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.x = _material->EmissiveFactor().x;
+		BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.y = _material->EmissiveFactor().y;
+		BufferManager::Instance().PerObjBuffer().BufferData().emissiveFactor.z = _material->EmissiveFactor().z;
+
+		BufferManager::Instance().PerObjBuffer().BufferData().metallicRoughnessValues.x = _material->MetallicFactor();
+		BufferManager::Instance().PerObjBuffer().BufferData().metallicRoughnessValues.y = _material->RoughnessFactor();
+		BufferManager::Instance().PerObjBuffer().Update(*(DevResources()));
+
+		// Iterate through all textures and set them as shader resources...
+		auto textures = _material->Textures();
+
+		// Setting the textures and samplers using the GLTF index as the destination slot
+		// We load some textures twice here so maybe re-visit..
+		for (auto txItr = textures.begin(); txItr != textures.end(); ++txItr)
+		{
+			auto textureWrapper = txItr->second;
+
+			// Set texture and sampler.
+			auto sampler = textureWrapper->GetSampler().Get();
+			context.context().PSSetSamplers(textureWrapper->Type(), 1, &sampler);
+			
+			//Utility::Out(L"Set texture sampler at slot %d", textureWrapper->Type());
+			auto texture = textureWrapper->GetShaderResourceView().Get();
+			context.context().PSSetShaderResources(textureWrapper->Type(), 1, &texture);
+		}
+
+		if (indexed)
+		{
+			context.context().DrawIndexed(static_cast<unsigned int>(m_indexCount), static_cast<unsigned int>(m_indexStart), 0);
+		}
+		else
+		{
+			context.context().Draw(static_cast<unsigned int>(m_indexCount), 0);
+		}
+
+		GraphContainerNode::Draw(context, model);
+	}
 }
 
 void BoundingSphereFromBoundingBox()
@@ -277,8 +301,9 @@ void MeshNode::CreateBuffer(WinRTGLTFParser::GLTF_BufferData ^ data)
 
 void MeshNode::CreateMaterial(GLTF_MaterialData ^ data)
 {
-	_material = make_shared<NodeMaterial>();
-	_material->Initialise(data);
+	auto material = make_shared<NodeMaterial>();
+	material->Initialise(data);
+	_materials.emplace_back(material);
 }
 
 void MeshNode::CreateTransform(GLTF_TransformData^ data)
@@ -327,16 +352,24 @@ void MeshNode::CreateTransform(GLTF_TransformData^ data)
 
 void MeshNode::CreateTexture(WinRTGLTFParser::GLTF_TextureData ^ data)
 {
-	auto res = _material->HasTextureId(data->Idx);
+	//std::shared_ptr<TextureWrapper> res = nullptr;
+	for(auto& _material: _materials)
+	{
+		auto res = _material->HasTextureId(data->Idx);
+		if (res)
+		{
+			return;
+		}
+	}
 
 	// Don't want to allocate textures we have already allocated..
-	if (res)
-	{
+	//if (res)
+	//{
 		// Don't need to load the image but we need to register an entry for the texture type in the
 		// textures map..
-		_material->AddTexture(res);
-		return;
-	}
+		//_material->AddTexture(res);
+		//return;
+	//}
 
 	Utility::Out(L"Create texture id - %d", data->Idx);
 
@@ -344,8 +377,11 @@ void MeshNode::CreateTexture(WinRTGLTFParser::GLTF_TextureData ^ data)
 	D3D11_TEXTURE2D_DESC txtDesc = {};
 	txtDesc.MipLevels = txtDesc.ArraySize = 1;
 
-	// TODO: Fix this - understand when to use sRGB and RGB 
-	txtDesc.Format = (data->Type == 4 || data->Type == 3) ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+	// TODO: Fix this - understand when to use sRGB and RGB
+	// TODO SMISOM switched up the texture format!
+	//txtDesc.Format = (data->Type == 4 || data->Type == 3) ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+	//txtDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	txtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	txtDesc.SampleDesc.Count = 1;
 	txtDesc.Usage = D3D11_USAGE_IMMUTABLE;
 	txtDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
@@ -362,6 +398,13 @@ void MeshNode::CreateTexture(WinRTGLTFParser::GLTF_TextureData ^ data)
 	initialData.pSysMem = image.data();
 	initialData.SysMemPitch = txtDesc.Width * sizeof(uint32_t);
 
+	// Normal maps
+	if (image.size() == 2 * width * height)
+	{
+		txtDesc.Format = DXGI_FORMAT_R8G8_SNORM;
+		initialData.SysMemPitch = txtDesc.Width * sizeof(uint16_t);
+	}
+
 	ComPtr<ID3D11Texture2D> tex;
 	DX::ThrowIfFailed(
 		DevResources()->GetD3DDevice()->CreateTexture2D(&txtDesc, &initialData,
@@ -374,10 +417,11 @@ void MeshNode::CreateTexture(WinRTGLTFParser::GLTF_TextureData ^ data)
 
 	// Create sampler.
 	D3D11_SAMPLER_DESC samplerDesc = {};
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	//samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	//samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
@@ -385,6 +429,8 @@ void MeshNode::CreateTexture(WinRTGLTFParser::GLTF_TextureData ^ data)
 	ComPtr<ID3D11SamplerState> texSampler;
 	DX::ThrowIfFailed(DevResources()->GetD3DDevice()->CreateSamplerState(&samplerDesc, texSampler.ReleaseAndGetAddressOf()));
 
+	// TODO - this is a hack! assumes last material is one we are currently loading textures for!
+	auto _material = _materials.back();
 	_material->AddTexture(data->Idx, data->Type, tex, textureResourceView, texSampler);
 }
 

@@ -1,11 +1,21 @@
 #include "pch.h"
 #include "ImgUtils.h"
 #include "Common\DirectXHelper.h"
-#include "dds_reader.h"
+//#include "dds_reader.h"
+
+#include "DirectXTex.h"
 
 #include <algorithm>
 #include <filesystem>
-//using namespace DX;
+
+#ifdef _DEBUG
+#pragma comment(lib, "lx64/Debug/DirectXTex.lib")
+#else
+#pragma comment(lib, "lx64/Release/DirectXTex.lib")
+#endif
+
+
+using namespace DirectX;
 namespace fs = std::filesystem;
 
 vector<uint8_t> ImgUtils::LoadRGBAImage(void *imgFileData, size_t imgFileDataSize, uint32_t& width, uint32_t& height, 
@@ -38,6 +48,7 @@ vector<uint8_t> ImgUtils::LoadRGBAImage(void *imgFileData, size_t imgFileDataSiz
 	// if DDS, short circuit, no need for WIC
 	if (isDDS)
 	{
+		/*
 		byte* pixels = reinterpret_cast<byte*>(ddsRead(static_cast<const unsigned char*>(imgFileData), DDS_READER_ARGB, 0));
 		width = ddsGetWidth(static_cast<const unsigned char*>(imgFileData));
 		height = ddsGetHeight(static_cast<const unsigned char*>(imgFileData));
@@ -47,6 +58,31 @@ vector<uint8_t> ImgUtils::LoadRGBAImage(void *imgFileData, size_t imgFileDataSiz
 		if (pixels != nullptr)
 		{
 			std::copy(pixels, pixels + outsize, reinterpret_cast<BYTE*>(image.data()));
+		}
+		ddsFree(pixels);
+		*/
+
+		//
+		TexMetadata metadata;
+		//GetMetadataFromDDSMemory(imgFileData, imgFileDataSize, DDS_FLAGS_NONE, metadata);
+		//auto outsize = metadata.width * metadata.height * 4;
+
+		ScratchImage scratch;
+		ScratchImage destImage;
+		LoadFromDDSMemory(imgFileData, imgFileDataSize, DDS_FLAGS_NONE, &metadata, scratch);
+
+		//auto pixels_size = scratch.GetPixelsSize();
+		width = metadata.width;
+		height = metadata.height;
+		//auto outsize = width * height * 4;
+		Decompress(scratch.GetImages(), scratch.GetImageCount(), scratch.GetMetadata(), DXGI_FORMAT_UNKNOWN, destImage ); // No mipmaps for now
+		auto pixels_size = destImage.GetImage(0, 0, 0)->slicePitch;
+		auto pixels = destImage.GetImage(0, 0, 0)->pixels;
+		vector<uint8_t> image(pixels_size);
+		if (pixels != nullptr)
+		{
+			//std::copy(pixels, pixels + pixels_size, reinterpret_cast<BYTE*>(image.data()));
+			std::copy(pixels, pixels + pixels_size, reinterpret_cast<BYTE*>(image.data()));
 		}
 		return image;
 	}

@@ -26,6 +26,7 @@ typedef DWORD SHGDNF;
 #include <ppl.h>
 #include <ppltasks.h>
 
+using namespace std;
 using namespace std::experimental::filesystem::v1;
 using namespace Microsoft::glTF;
 using namespace Platform;

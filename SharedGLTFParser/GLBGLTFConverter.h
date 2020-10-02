@@ -77,9 +77,9 @@ namespace GLTFParser
 		void LoadMaterialTextures(const ParserContext& parser, const Material& mNode);
 		void LoadTexture(const ParserContext& parser, const Texture& texture, GLTFTextureType type);
 		void LoadBufferFromAccessorId(const ParserContext& parser, const string& accessorId, 
-									  const string& bufferType);
+									  const string& bufferType, const MeshPrimitive& primitive);
 		void LoadBuffer(const ParserContext& parser, const BufferView& bufferView,
-						const string& bufferType, const Accessor& accessor) const;
+						const string& bufferType, const Accessor& accessor, const MeshPrimitive& primitive) const;
 
 	private:
 		GLTFFileData::Callbacks _callbacks;

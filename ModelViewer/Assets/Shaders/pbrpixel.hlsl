@@ -134,13 +134,14 @@ float4 SRGBtoLINEAR(float4 srgbIn)
 // or from the interpolated mesh normal and tangent attributes.
 float3 getNormal(float3 position, float3 normal, float2 uv)
 {
+	//return normal;
     // Retrieve the tangent space matrix
 #ifndef HAS_TANGENTS
     float3 pos_dx = ddx(position);
     float3 pos_dy = ddy(position);
     float3 tex_dx = ddx(float3(uv, 0.0));
     float3 tex_dy = ddy(float3(uv, 0.0));
-    float3 t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
+    //float3 t = (tex_dy.y * pos_dx - tex_dx.y * pos_dy) / (tex_dx.x * tex_dy.y - tex_dy.x * tex_dx.y);
 
 #ifdef HAS_NORMALS
     float3 ng = normalize(normal);
@@ -148,19 +149,49 @@ float3 getNormal(float3 position, float3 normal, float2 uv)
     float3 ng = cross(pos_dx, pos_dy);
 #endif
 
-    t = normalize(t - ng * dot(ng, t));
-    float3 b = normalize(cross(ng, t));
-    row_major float3x3 tbn = float3x3(t, b, ng);
+    //t = normalize(t - ng * dot(ng, t));
+    //float3 b = normalize(cross(ng, t));
+    float3 dp2perp = cross(pos_dy, ng);
+    float3 dp1perp = cross(ng, pos_dx);
+    float3 t = dp2perp * tex_dx.x + dp1perp * tex_dy.x;
+    float3 b = dp2perp * tex_dx.y + dp1perp * tex_dy.y;
+	float invmax = rsqrt(max(dot(t,t), dot(b,b)));
+    //row_major float3x3 tbn = float3x3(t, b, ng);
+	row_major float3x3 tbn = float3x3(t * invmax, b * invmax, ng);
 
 #else // HAS_TANGENTS
     mat3 tbn = v_TBN;
 #endif
 
 #ifdef HAS_NORMALMAP
-    float3 n = normalTexture.Sample(normalSampler, uv).rgb;
+    //float3 n = normalTexture.Sample(normalSampler, uv).rgb;
 
     // Need to check the multiplication is equivalent..
-    n = normalize(mul(((2.0 * n - 1.0) * float3(normalScale, normalScale, 1.0)), tbn));
+    //n = normalize(mul(((2.0 * n - 1.0) * float3(normalScale, normalScale, 1.0)), tbn));
+
+	/*
+    float3 tangentNormal = 2.0 * (normalTexture.Sample(normalSampler, uv).xyz - 0.5);
+    //tangentNormal.y = -tangentNormal.y;	
+	tangentNormal.xy *= normalScale;
+	//tangentNormal.z = sqrt(saturate(1.f - dot(tangentNormal.xy, tangentNormal.xy)));
+	tangentNormal.z = sqrt(saturate(dot(tangentNormal.xy, tangentNormal.xy)));
+
+    float3 n = mul(tbn, normalize(tangentNormal));
+	//float3 n = mul(transpose(tbn), normalize(tangentNormal));
+    */
+
+	
+	//float3 n = normalTexture.Sample(normalSampler, uv).rgb;
+	//n.z = sqrt(saturate(1.f - dot(n.xy, n.xy)));
+	//n.z = sqrt(saturate(dot(n.xy, n.xy)));
+	//n = normalize(2.0 * n - 1.0);
+	//n = normalize(mul(((2.0 * n - 1.0) * float3(normalScale, normalScale, 1.0)), tbn));
+	//float3 tangentNormal = 2.0 * (normalTexture.Sample(normalSampler, uv).xyz - 1.0);
+	float3 tangentNormal = normalTexture.Sample(normalSampler, uv).xyz;
+	//tangentNormal.y = -tangentNormal.y;	
+	tangentNormal.xy *= normalScale;
+	tangentNormal.z = sqrt(saturate(1.f - dot(tangentNormal.xy, tangentNormal.xy)));
+	float3 n = mul(normalize(tangentNormal), tbn);
 #else
     float3 n = tbn[2].xyz;
 #endif
@@ -190,12 +221,20 @@ float3 getIBLContribution(PBRInfo pbrInputs, float3 n, float3 reflection)
 #endif
 
     float3 diffuse = diffuseLight * pbrInputs.diffuseColor;
-    float3 specular = specularLight * (pbrInputs.specularColor * brdf.x + brdf.y);
+    //float3 specular = specularLight * (pbrInputs.specularColor * brdf.x + brdf.y);
+	float3 specular = pbrInputs.specularColor * brdf.x + brdf.y;
+
+	// The maps are flipped in the resources!
+	//float3 diffuse = specularLight * pbrInputs.diffuseColor;
+    //float3 specular = diffuseLight * (pbrInputs.specularColor * brdf.x + brdf.y);
+    
 
     // For presentation, this allows us to disable IBL terms
     diffuse *= scaleIBLAmbient.x;
     specular *= scaleIBLAmbient.y;
 
+	// TODO smisom disabled specular!
+	//return diffuse;
     return diffuse + specular;
 }
 #endif
@@ -249,6 +288,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
     float metallic = metallicRoughnessValues.x;
 
 #ifdef HAS_METALROUGHNESSMAP
+//#if false
     // Roughness is stored in the 'g' channel, metallic is stored in the 'b' channel.
     // This layout intentionally reserves the 'r' channel for (optional) occlusion map data
     float4 mrSample = metallicRoughnessTexture.Sample(metallicRoughnessSampler, input.texcoord);
@@ -256,6 +296,7 @@ float4 main(PixelShaderInput input) : SV_TARGET
 	// Had to reverse the order of the channels here - TODO: investigate..
     perceptualRoughness = mrSample.g * perceptualRoughness;
     metallic = mrSample.b * metallic;
+    
 #endif
 
     perceptualRoughness = clamp(perceptualRoughness, c_MinRoughness, 1.0);
@@ -268,11 +309,16 @@ float4 main(PixelShaderInput input) : SV_TARGET
     // The albedo may be defined from a base texture or a flat color
 
 #ifdef HAS_BASECOLORMAP
-    float4 baseColor = SRGBtoLINEAR(baseColourTexture.Sample(baseColourSampler, input.texcoord)) * baseColorFactor;
+    //float4 baseColor = SRGBtoLINEAR(baseColourTexture.Sample(baseColourSampler, input.texcoord)) * baseColorFactor;
+	//float4 baseColor = baseColourTexture.Sample(baseColourSampler, input.texcoord) * baseColorFactor;
+	float4 baseColor = baseColourTexture.Sample(baseColourSampler, input.texcoord);
 #else
     float4 baseColor = baseColorFactor;
+	//float4 baseColor = float4(0.0, 0.0, 0.0, 1.0);
 #endif
 
+    //return baseColor;
+	
     float3 f0 = float3(0.04, 0.04, 0.04);
     float3 diffuseColor = baseColor.rgb * (float3(1.0, 1.0, 1.0) - f0);
 

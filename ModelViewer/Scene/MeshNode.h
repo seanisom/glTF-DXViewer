@@ -60,11 +60,11 @@ private:
 
 	ComPtr<ID3D11SamplerState> _spSampler;
 	ComPtr<ID3D11RasterizerState> _spRasterizer;
-	shared_ptr<NodeMaterial> _material;
+	std::vector<shared_ptr<NodeMaterial>> _materials;
 
 	size_t	m_indexCount;
+	size_t m_indexStart;
 
-	shared_ptr<NodeMaterial> _currentMaterial;
 	BoundingBox<float> _bbox;
 
 	bool m_hasUVs = false;

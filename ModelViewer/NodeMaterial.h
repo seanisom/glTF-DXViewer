@@ -65,6 +65,8 @@ public:
 
 	float MetallicFactor() { return _metallicFactor; }
 	float RoughnessFactor() { return _roughnessFactor; }
+
+	bool Invisible() { return _invisible; }
 	
 private:
 	map<unsigned int, shared_ptr<TextureWrapper>> _textures;
@@ -81,5 +83,7 @@ private:
 	XMFLOAT4 _baseColorFactor = { 1.0f, 1.0f, 1.0f, 1.0f };
 	float _metallicFactor = 1.0f;
 	float _roughnessFactor = 1.0f;
+
+	bool _invisible = false;
 };
 

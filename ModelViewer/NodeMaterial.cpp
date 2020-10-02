@@ -26,6 +26,7 @@ void NodeMaterial::Initialise(GLTF_MaterialData^ data)
 	_baseColorFactor.w = data->baseColourFactor[3];
 	_metallicFactor = data->metallicFactor;
 	_roughnessFactor = data->roughnessFactor;
+	_invisible = data->invisible;
 }
 
 shared_ptr<TextureWrapper> NodeMaterial::HasTextureId(unsigned int idx)

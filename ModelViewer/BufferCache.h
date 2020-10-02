@@ -72,13 +72,14 @@ public:
 		auto ret = make_shared<ID3D11BufferWrapper>();
 
 		int bindFlags = 0;
-		if (descriptor.Data()->BufferDescription->BufferContentType == L"POSITION" ||
-			descriptor.Data()->BufferDescription->BufferContentType == L"NORMAL" ||
-			descriptor.Data()->BufferDescription->BufferContentType == L"TEXCOORD_0")
+		auto content_type = std::wstring(descriptor.Data()->BufferDescription->BufferContentType->Data());
+		if (content_type.rfind(L"POSITION", 0) == 0 ||
+			content_type.rfind(L"NORMAL", 0) == 0 ||
+			content_type.rfind(L"TEXCOORD_0", 0) == 0 )
 		{
 			bindFlags = D3D11_BIND_VERTEX_BUFFER;
 		}
-		else if (descriptor.Data()->BufferDescription->BufferContentType == L"INDICES")
+		else if (content_type.rfind(L"INDICES", 0) == 0)
 		{
 			bindFlags = D3D11_BIND_INDEX_BUFFER;
 		}
@@ -88,7 +89,7 @@ public:
 			return ret;
 		}
 
-		if (descriptor.Data()->BufferDescription->BufferContentType == L"POSITION")
+		if (content_type.rfind(L"POSITION", 0) == 0)
 		{
 			ret->SetBoundingBox(
 				BoundingBox<float>::CreateBoundingBoxFromVertexBuffer(

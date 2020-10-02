@@ -8,7 +8,6 @@ namespace WinRTGLTFParser
 	using namespace Windows::Storage::Streams;
 	using namespace Windows::Storage;
 	using namespace Platform;
-	using namespace std;
 
 	String^ ToStringHat(char* ch);
 
@@ -32,6 +31,8 @@ namespace WinRTGLTFParser
 			metallicFactor = data.metallicFactor;
 			roughnessFactor = data.roughnessFactor;
 
+			invisible = data.invisible;
+		
 			Pbrmetallicroughness_Basecolortexture = data.Pbrmetallicroughness_Basecolortexture;
 			Pbrmetallicroughness_Metallicroughnesstexture = data.Pbrmetallicroughness_Metallicroughnesstexture;
 			Normaltexture = data.Normaltexture;
@@ -46,6 +47,8 @@ namespace WinRTGLTFParser
 		
 		property float metallicFactor;
 		property float roughnessFactor;
+
+		property bool invisible;
 
 		property unsigned int Pbrmetallicroughness_Basecolortexture;
 		property unsigned int Pbrmetallicroughness_Metallicroughnesstexture;
